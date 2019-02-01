@@ -5,9 +5,12 @@ import Debug from 'debug';
 import http from 'http';
 import { hri } from 'human-readable-ids';
 import Router from 'koa-router';
+const md = require("markdown-it")();
+const fs = require("fs");
 
 import ClientManager from './lib/ClientManager';
 
+const querystring = require("querystring");
 const debug = Debug('localtunnel:server');
 
 export default function(opt) {
@@ -66,17 +69,20 @@ export default function(opt) {
         const isNewClientRequest = ctx.query['new'] !== undefined;
         if (isNewClientRequest) {
             const reqId = hri.random();
-            debug('making new client with id %s', reqId);
-            const info = await manager.newClient(reqId);
-
-            const url = schema + '://' + info.id + '.' + ctx.request.host;
-            info.url = url;
-            ctx.body = info;
+            ctx = await response(ctx, next, reqId);
             return;
         }
 
         // no new client request, send to landing page
-        ctx.redirect(landingPage);
+        
+        if (fs.existsSync("./README.md")) {
+          var data = fs.readFileSync("./README.md", 'utf8');
+          ctx.status = 200;
+          ctx.body = md.render(data.toString());
+        } else 
+          ctx.redirect(landingPage);
+          
+        return;
     });
 
     // anything after the / path is a request for a specific client name
@@ -104,14 +110,22 @@ export default function(opt) {
             return;
         }
 
-        debug('making new client with id %s', reqId);
-        const info = await manager.newClient(reqId);
-
-        const url = schema + '://' + info.id + '.' + ctx.request.host;
-        info.url = url;
-        ctx.body = info;
+        ctx = await response(ctx, next, reqId);
         return;
     });
+
+    async function response(ctx, next, reqId) {
+        var params = querystring.parse(ctx.request.querystring);
+        var secret_token = params.secret_token || null;
+
+        debug('making new client with id %s', reqId);
+        const info = await manager.newClient(reqId, secret_token);
+
+        const url = schema + '://' + info.id + '.' + (opt.domain || ctx.request.host);
+        info.url = url;
+        ctx.body = info;
+        return ctx;
+    }
 
     const server = http.createServer();
 
@@ -128,6 +142,7 @@ export default function(opt) {
 
         const clientId = GetClientIdFromHostname(hostname);
         if (!clientId) {
+            debug("cannot get ckientId from hostname %s", hostname);
             appCallback(req, res);
             return;
         }
