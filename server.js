@@ -7,18 +7,17 @@ import { hri } from 'human-readable-ids';
 import Router from 'koa-router';
 const md = require("markdown-it")();
 const fs = require("fs");
-
-import ClientManager from './lib/ClientManager';
-
 const querystring = require("querystring");
 const debug = Debug('localtunnel:server');
+
+import ClientManager from './lib/ClientManager';
 
 export default function(opt) {
     opt = opt || {};
 
     const validHosts = (opt.domain) ? [opt.domain] : undefined;
     const myTldjs = tldjs.fromUserSettings({ validHosts });
-    const landingPage = opt.landing || 'https://localtunnel.github.io/www/';
+    const landingPage = opt.landing || 'https://httptunnel.github.io/www/';
 
     function GetClientIdFromHostname(hostname) {
         return myTldjs.getSubdomain(hostname);
@@ -79,9 +78,9 @@ export default function(opt) {
           var data = fs.readFileSync("./README.md", 'utf8');
           ctx.status = 200;
           ctx.body = md.render(data.toString());
-        } else 
+        } else {
           ctx.redirect(landingPage);
-          
+        }
         return;
     });
 
@@ -101,8 +100,8 @@ export default function(opt) {
         const reqId = parts[1];
 
         // limit requested hostnames to 63 characters
-        if (! /^(?:[a-z0-9][a-z0-9\-]{4,63}[a-z0-9]|[a-z0-9]{4,63})$/.test(reqId)) {
-            const msg = 'Invalid subdomain. Subdomains must be lowercase and between 4 and 63 alphanumeric characters.';
+        if (! /^(?:[a-z0-9][a-z0-9\-]{1,63}[a-z0-9]|[a-z0-9]{1,63})$/.test(reqId)) {
+            const msg = 'Invalid subdomain. Subdomains must be lowercase and between 1 and 63 alphanumeric characters.';
             ctx.status = 403;
             ctx.body = {
                 message: msg,
@@ -142,7 +141,7 @@ export default function(opt) {
 
         const clientId = GetClientIdFromHostname(hostname);
         if (!clientId) {
-            debug("cannot get ckientId from hostname %s", hostname);
+            debug("cannot get clientId from hostname %s", hostname);
             appCallback(req, res);
             return;
         }
